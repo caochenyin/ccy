@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clothing Size Recommendation App</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Set font to Inter */
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#3b82f6',
+                        'secondary-gray': '#e5e7eb',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="app-container" class="w-full max-w-md bg-white rounded-xl shadow-2xl p-6 md:p-8">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">
+            Clothing Size Recommender
+        </h1>
+        <p class="text-center text-gray-500 mb-6">
+            Enter your measurements to get the best fitting clothing size.
+        </p>
+
+        <!-- Unit Selection Area -->
+        <div class="mb-6 flex justify-center space-x-4">
+            <button id="unit-metric" class="unit-toggle px-4 py-2 text-sm font-semibold rounded-lg shadow-md bg-primary-blue text-white transition duration-200">
+                Metric (CM / KG)
+            </button>
+            <button id="unit-imperial" class="unit-toggle px-4 py-2 text-sm font-semibold rounded-lg shadow-md bg-secondary-gray text-gray-700 hover:bg-gray-300 transition duration-200">
+                Imperial (IN / LB)
+            </button>
+        </div>
+
+        <!-- Input Form -->
+        <div class="grid grid-cols-2 gap-4">
+            
+            <div class="col-span-1">
+                <label for="input-weight" id="label-weight" class="block text-sm font-medium text-gray-700">Weight (KG)</label>
+                <input type="number" id="input-weight" step="0.1" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-blue focus:ring-primary-blue p-2.5 border transition duration-150" placeholder="e.g.: 50">
+            </div>
+
+            <div class="col-span-1">
+                <label for="input-height" id="label-height" class="block text-sm font-medium text-gray-700">Height (CM)</label>
+                <input type="number" id="input-height" step="0.1" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-blue focus:ring-primary-blue p-2.5 border transition duration-150" placeholder="e.g.: 165">
+            </div>
+
+            <div class="col-span-2 md:col-span-1">
+                <label for="input-chest" id="label-chest" class="block text-sm font-medium text-gray-700">Chest (CM)</label>
+                <input type="number" id="input-chest" step="0.1" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-blue focus:ring-primary-blue p-2.5 border transition duration-150" placeholder="e.g.: 86">
+            </div>
+            
+            <div class="col-span-2 md:col-span-1">
+                <label for="input-waist" id="label-waist" class="block text-sm font-medium text-gray-700">Waist (CM)</label>
+                <input type="number" id="input-waist" step="0.1" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-blue focus:ring-primary-blue p-2.5 border transition duration-150" placeholder="e.g.: 65">
+            </div>
+            
+            <div class="col-span-2">
+                <label for="input-hips" id="label-hips" class="block text-sm font-medium text-gray-700">Hips (CM)</label>
+                <input type="number" id="input-hips" step="0.1" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-blue focus:ring-primary-blue p-2.5 border transition duration-150" placeholder="e.g.: 90">
+            </div>
+        </div>
+
+        <button id="recommend-button" class="mt-6 w-full py-3 bg-green-500 text-white font-bold rounded-lg shadow-lg hover:bg-green-600 transition duration-300 transform hover:scale-105">
+            Recommend Size
+        </button>
+
+        <!-- Result Display Area -->
+        <div id="result-display" class="mt-8 p-4 bg-primary-blue/10 border-l-4 border-primary-blue rounded-lg transition-all duration-300 ease-in-out hidden">
+            <h3 class="text-xl font-semibold text-primary-blue mb-2">Recommendation Result</h3>
+            <div id="recommended-size" class="text-4xl font-extrabold text-primary-blue"></div>
+            <p id="size-details" class="text-gray-700 mt-2 text-sm"></p>
+        </div>
+
+        <!-- Error or Message Area -->
+        <div id="message-area" class="mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg hidden">
+            Please enter all valid measurements.
+        </div>
+
+    </div>
+
+    <script>
+        // Size chart data (based on CM and KG)
+        const SIZE_CHART = [
+            { size: 'XS', weight: [35, 40], height: [146, 152], chest: [77, 80], waist: [56, 59], hips: [79, 82] },
+            { size: 'S', weight: [40, 45], height: [152, 158], chest: [81, 84], waist: [60, 63], hips: [83, 86] },
+            { size: 'M', weight: [45, 50], height: [158, 166], chest: [85, 88], waist: [64, 67], hips: [87, 90] },
+            { size: 'L', weight: [50, 55], height: [166, 172], chest: [89, 92], waist: [68, 71], hips: [91, 94] },
+            { size: 'XL', weight: [55, 62], height: [172, 178], chest: [93, 96], waist: [72, 75], hips: [95, 98] },
+            { size: '2XL', weight: [62, 67], height: [178, 184], chest: [97, 100], waist: [76, 78], hips: [99, 105] },
+            { size: '3XL', weight: [67, 74], height: [184, 190], chest: [101, 104], waist: [79, 82], hips: [105, 110] },
+        ];
+
+        // Unit conversion constants
+        const IN_TO_CM = 2.54;
+        const LB_TO_KG = 0.453592;
+
+        // Current unit state: 'metric' or 'imperial'
+        let currentUnit = 'metric';
+
+        // Get DOM elements
+        const inputs = {
+            weight: document.getElementById('input-weight'),
+            height: document.getElementById('input-height'),
+            chest: document.getElementById('input-chest'),
+            waist: document.getElementById('input-waist'),
+            hips: document.getElementById('input-hips'),
+        };
+        const labels = {
+            weight: document.getElementById('label-weight'),
+            height: document.getElementById('label-height'),
+            chest: document.getElementById('label-chest'),
+            waist: document.getElementById('label-waist'),
+            hips: document.getElementById('label-hips'),
+        };
+        const unitMetricBtn = document.getElementById('unit-metric');
+        const unitImperialBtn = document.getElementById('unit-imperial');
+        const recommendButton = document.getElementById('recommend-button');
+        const resultDisplay = document.getElementById('result-display');
+        const recommendedSize = document.getElementById('recommended-size');
+        const sizeDetails = document.getElementById('size-details');
+        const messageArea = document.getElementById('message-area');
+
+        /**
+         * Converts the input value to metric units (CM/KG).
+         * @param {string} key - Measurement type (weight, height, chest, etc.)
+         * @param {number} value - Input value
+         * @param {string} unit - Current unit ('metric' or 'imperial')
+         * @returns {number} Converted metric value
+         */
+        function convertToMetric(key, value, unit) {
+            if (unit === 'metric') {
+                return value;
+            }
+
+            // imperial
+            if (key === 'weight') {
+                return value * LB_TO_KG; // lbs to kg
+            } else {
+                return value * IN_TO_CM; // inches to cm (for height, chest, waist, hips)
+            }
+        }
+        
+        /**
+         * Converts metric value to imperial value (for display in input fields).
+         * @param {string} key - Measurement type (weight, height, chest, etc.)
+         * @param {number} value - Metric value
+         * @returns {number} Converted imperial value
+         */
+        function convertToImperial(key, value) {
+            if (key === 'weight') {
+                return value / LB_TO_KG; // kg to lbs
+            } else {
+                return value / IN_TO_CM; // cm to inches
+            }
+        }
+
+        /**
+         * Recommends the most suitable size based on the input measurements.
+         * Uses a scoring system: 1 point for falling within the range of each measurement.
+         * @param {Object} metricMeasurements - Metric measurement data {weight, height, chest, waist, hips}
+         * @returns {Object} Recommended size and detail message
+         */
+        function recommendSize(metricMeasurements) {
+            const scores = {};
+            
+            // Store details of matched sizes
+            const matchedSizes = [];
+
+            for (const item of SIZE_CHART) {
+                let score = 0;
+                let details = [];
+
+                // Check Weight
+                const isWeightMatch = metricMeasurements.weight >= item.weight[0] && metricMeasurements.weight <= item.weight[1];
+                if (isWeightMatch) { score++; details.push('Weight'); }
+
+                // Check Height
+                const isHeightMatch = metricMeasurements.height >= item.height[0] && metricMeasurements.height <= item.height[1];
+                if (isHeightMatch) { score++; details.push('Height'); }
+
+                // Check Chest
+                const isChestMatch = metricMeasurements.chest >= item.chest[0] && metricMeasurements.chest <= item.chest[1];
+                if (isChestMatch) { score++; details.push('Chest'); }
+
+                // Check Waist
+                const isWaistMatch = metricMeasurements.waist >= item.waist[0] && metricMeasurements.waist <= item.waist[1];
+                if (isWaistMatch) { score++; details.push('Waist'); }
+
+                // Check Hips
+                const isHipsMatch = metricMeasurements.hips >= item.hips[0] && metricMeasurements.hips <= item.hips[1];
+                if (isHipsMatch) { score++; details.push('Hips'); }
+
+                scores[item.size] = score;
+
+                if (score > 0) {
+                     matchedSizes.push({ 
+                        size: item.size, 
+                        score: score, 
+                        details: details.join(', '),
+                        mismatchCount: 5 - score
+                    });
+                }
+            }
+            
+            // Find the highest score
+            let maxScore = 0;
+            let recommended = 'Not Found';
+
+            for (const size in scores) {
+                if (scores[size] > maxScore) {
+                    maxScore = scores[size];
+                    recommended = size;
+                }
+            }
+
+            // Handle result message
+            if (maxScore === 0) {
+                return { size: 'Not Found', detail: 'Your measurements do not match any size range in the current size chart.' };
+            }
+
+            // Filter all sizes with the highest score
+            const topMatches = matchedSizes.filter(match => match.score === maxScore);
+            
+            if (topMatches.length === 1) {
+                const match = topMatches[0];
+                return { 
+                    size: match.size, 
+                    detail: `Your measurements perfectly matched the following items: ${match.details}.`
+                };
+            } else {
+                // If multiple sizes have the highest score, generally choose the smallest size (to prevent clothing from being too large)
+                const finalRecommendation = topMatches.sort((a, b) => SIZE_CHART.findIndex(s => s.size === a.size) - SIZE_CHART.findIndex(s => s.size === b.size))[0];
+                
+                return { 
+                    size: finalRecommendation.size, 
+                    detail: `Your measurements match multiple sizes: ${topMatches.map(m => m.size).join(', ')}. We recommend choosing ${finalRecommendation.size}. Note that you have ${finalRecommendation.mismatchCount} mismatched measurements. We suggest prioritizing the most comfortable fit (e.g., chest/waist).`
+                };
+            }
+        }
+
+        /**
+         * Handles the unit switching logic.
+         * @param {string} unit - The unit to switch to ('metric' or 'imperial')
+         */
+        function switchUnit(unit) {
+            currentUnit = unit;
+            
+            const isImperial = unit === 'imperial';
+            
+            // 1. Update button styles
+            unitMetricBtn.classList.toggle('bg-primary-blue', !isImperial);
+            unitMetricBtn.classList.toggle('bg-secondary-gray', isImperial);
+            unitMetricBtn.classList.toggle('text-white', !isImperial);
+            unitMetricBtn.classList.toggle('text-gray-700', isImperial);
+
+            unitImperialBtn.classList.toggle('bg-primary-blue', isImperial);
+            unitImperialBtn.classList.toggle('bg-secondary-gray', !isImperial);
+            unitImperialBtn.classList.toggle('text-white', isImperial);
+            unitImperialBtn.classList.toggle('text-gray-700', !isImperial);
+
+            // 2. Update labels and input hints
+            labels.weight.textContent = isImperial ? 'Weight (LB)' : 'Weight (KG)';
+            labels.height.textContent = isImperial ? 'Height (IN)' : 'Height (CM)';
+            labels.chest.textContent = isImperial ? 'Chest (IN)' : 'Chest (CM)';
+            labels.waist.textContent = isImperial ? 'Waist (IN)' : 'Waist (CM)';
+            labels.hips.textContent = isImperial ? 'Hips (IN)' : 'Hips (CM)';
+            
+            // 3. Convert values in input fields (to maintain data consistency)
+            for (const key in inputs) {
+                const input = inputs[key];
+                const currentValue = parseFloat(input.value);
+                if (!isNaN(currentValue)) {
+                    // This logic is simplified for toggling between units based on currentUnit state before the switch
+                    if (isImperial) {
+                        // If switching to Imperial, convert existing metric values to imperial for display
+                        const metricValue = convertToMetric(key, currentValue, 'metric');
+                        input.value = convertToImperial(key, metricValue).toFixed(1);
+                    } else {
+                        // If switching to Metric, convert existing imperial values to metric for display
+                        const imperialValue = convertToImperial(key, currentValue);
+                        input.value = convertToMetric(key, imperialValue, 'imperial').toFixed(1);
+                    }
+                }
+            }
+
+            // Clear results
+            resultDisplay.classList.add('hidden');
+            messageArea.classList.add('hidden');
+        }
+
+        /**
+         * Handles the recommendation button click event.
+         */
+        function handleRecommendation() {
+            messageArea.classList.add('hidden');
+            
+            const rawMeasurements = {};
+            let allValid = true;
+
+            for (const key in inputs) {
+                const value = parseFloat(inputs[key].value);
+                if (isNaN(value) || value <= 0) {
+                    allValid = false;
+                    break;
+                }
+                rawMeasurements[key] = value;
+            }
+
+            if (!allValid) {
+                messageArea.textContent = 'Please enter all valid measurements.';
+                messageArea.classList.remove('hidden');
+                resultDisplay.classList.add('hidden');
+                return;
+            }
+
+            // Convert to metric for calculation
+            const metricMeasurements = {
+                weight: convertToMetric('weight', rawMeasurements.weight, currentUnit),
+                height: convertToMetric('height', rawMeasurements.height, currentUnit),
+                chest: convertToMetric('chest', rawMeasurements.chest, currentUnit),
+                waist: convertToMetric('waist', rawMeasurements.waist, currentUnit),
+                hips: convertToMetric('hips', rawMeasurements.hips, currentUnit),
+            };
+
+            const result = recommendSize(metricMeasurements);
+
+            // Display result
+            recommendedSize.textContent = result.size;
+            sizeDetails.innerHTML = result.detail + '<br><em>Note: This recommendation is based on the provided size chart. Actual fit may vary depending on the clothing style.</em>';
+
+            resultDisplay.classList.remove('hidden');
+        }
+
+        // Set event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize unit to Metric
+            switchUnit('metric'); 
+
+            unitMetricBtn.addEventListener('click', () => switchUnit('metric'));
+            unitImperialBtn.addEventListener('click', () => switchUnit('imperial'));
+            recommendButton.addEventListener('click', handleRecommendation);
+        });
+    </script>
+</body>
+</html>
