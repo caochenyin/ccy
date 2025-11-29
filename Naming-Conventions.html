@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英語閱讀理解練習</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義滾動條樣式 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    <script>
+        // 設定 Tailwind CSS 配置，使用 Inter 字體（如果系統有）
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#4f46e5',
+                        'primary-dark': '#4338ca',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen flex items-center justify-center p-4">
+
+    <div id="app" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl overflow-hidden">
+        <header class="bg-primary p-6 text-white text-center">
+            <h1 class="text-3xl font-extrabold mb-1">英語閱讀理解練習</h1>
+            <p class="text-sm opacity-90">選擇難度，生成文章與測驗</p>
+        </header>
+
+        <!-- 控制面板：難度選擇與生成按鈕 -->
+        <div class="p-6 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                <label for="difficulty" class="text-gray-700 font-medium whitespace-nowrap">選擇難度:</label>
+                <select id="difficulty" class="p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary w-full sm:w-auto">
+                    <option value="Grade 7">初中一年級 (Grade 7)</option>
+                    <option value="Grade 8">初中二年級 (Grade 8)</option>
+                    <option value="Grade 9">初中三年級 (Grade 9)</option>
+                </select>
+            </div>
+            
+            <button id="generateBtn" 
+                    class="w-full sm:w-auto px-6 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150 transform hover:scale-105 disabled:opacity-50 flex items-center justify-center">
+                <span id="btnText">生成文章與測驗</span>
+                <svg id="loadingSpinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 內容區域：文章與問題 -->
+        <div id="contentArea" class="p-6">
+            <div id="messageBox" class="text-center text-gray-500 italic p-8">
+                請選擇難度並點擊「生成文章與測驗」開始練習！
+            </div>
+
+            <!-- 錯誤提示區域 -->
+            <div id="errorAlert" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+                <span class="font-medium">發生錯誤：</span> <span id="errorMessage"></span>
+            </div>
+
+            <div id="quizContainer" class="hidden">
+                <!-- 閱讀文章區 -->
+                <div class="mb-8 p-6 bg-indigo-50 border-l-4 border-primary rounded-lg shadow-inner">
+                    <h2 class="text-xl font-bold text-primary mb-3 border-b pb-2">📖 閱讀文章 (Reading Passage)</h2>
+                    <p id="articleText" class="text-gray-700 whitespace-pre-line leading-relaxed"></p>
+                </div>
+
+                <!-- 問題區 -->
+                <div id="questionsList" class="space-y-6">
+                    <!-- 問題將在這裡動態生成 -->
+                </div>
+
+                <!-- 提交與分數區域 -->
+                <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                    <button id="submitBtn" 
+                            class="px-8 py-3 bg-primary text-white font-bold text-lg rounded-xl shadow-lg hover:bg-primary-dark transition duration-150 transform hover:scale-105 disabled:opacity-50"
+                            disabled>
+                        提交測驗並計分
+                    </button>
+                </div>
+
+                <div id="scoreResult" class="hidden mt-6 p-6 bg-yellow-100 border-2 border-yellow-400 rounded-lg text-center shadow-md">
+                    <h3 class="text-2xl font-extrabold text-yellow-700 mb-2">測驗結果</h3>
+                    <p id="scoreText" class="text-xl font-semibold text-gray-800"></p>
+                    <p class="text-sm text-gray-600 mt-2">點擊「生成文章與測驗」開始下一輪練習！</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 全域變數
+        const API_KEY = ""; // 保持為空字串，Canvas 會自動提供
+        const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+        
+        let quizData = null; // 儲存從 API 獲取的測驗數據
+
+        // UI 元素
+        const difficultySelect = document.getElementById('difficulty');
+        const generateBtn = document.getElementById('generateBtn');
+        const btnText = document.getElementById('btnText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const messageBox = document.getElementById('messageBox');
+        const quizContainer = document.getElementById('quizContainer');
+        const articleText = document.getElementById('articleText');
+        const questionsList = document.getElementById('questionsList');
+        const submitBtn = document.getElementById('submitBtn');
+        const scoreResult = document.getElementById('scoreResult');
+        const scoreText = document.getElementById('scoreText');
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // JSON 結構定義 (Schema)
+        const responseSchema = {
+            type: "OBJECT",
+            properties: {
+                article: {
+                    type: "STRING",
+                    description: "A short English reading passage suitable for the specified grade level. About 150-200 words."
+                },
+                questions: {
+                    type: "ARRAY",
+                    description: "Exactly five multiple-choice questions based on the article, each with 4 options.",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            question_text: { type: "STRING" },
+                            options: {
+                                type: "ARRAY",
+                                items: { type: "STRING" },
+                                description: "Four distinct multiple-choice options."
+                            },
+                            correct_answer_index: {
+                                type: "INTEGER",
+                                description: "The zero-based index (0, 1, 2, or 3) of the correct answer within the options array."
+                            }
+                        },
+                        required: ["question_text", "options", "correct_answer_index"]
+                    }
+                }
+            },
+            required: ["article", "questions"]
+        };
+
+        // --- API 呼叫與內容生成 ---
+
+        async function fetchContentWithRetry(payload, maxRetries = 5) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) { // 429 Too Many Requests
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; // 指數退避
+                            continue;
+                        }
+                        // 針對 401/403 等錯誤，直接拋出
+                        throw new Error(`API 錯誤: ${response.status} ${response.statusText}。請檢查 API 密鑰是否有效。`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        
+                        const jsonString = result.candidates[0].content.parts[0].text;
+                        return JSON.parse(jsonString);
+                    } else {
+                        throw new Error("API 返回的結構不完整或內容為空。");
+                    }
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    // 繼續重試，並使用指數退避
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; 
+                }
+            }
+        }
+
+        async function generateContent() {
+            const difficulty = difficultySelect.value;
+            const userQuery = `Generate a unique, non-fiction reading comprehension passage and exactly five multiple-choice questions based *only* on the passage. The content must be strictly appropriate for a ${difficulty} student.`;
+            
+            // 隱藏舊內容和分數
+            hideElement(quizContainer);
+            hideElement(scoreResult);
+            hideElement(errorAlert);
+            showElement(messageBox, "正在生成文章與測驗，請稍候...");
+            
+            // 禁用按鈕並顯示載入中
+            setLoading(true);
+
+            try {
+                const systemPrompt = `You are an expert content generator for English as a Second Language (ESL) reading comprehension. Your task is to generate a unique reading passage and exactly five multiple-choice questions based on it.`;
+                
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: responseSchema
+                    }
+                };
+
+                const data = await fetchContentWithRetry(payload);
+                
+                quizData = data;
+                renderQuiz(data);
+                hideElement(messageBox);
+                showElement(quizContainer);
+                submitBtn.disabled = true; // 預設禁用提交按鈕，直到全部作答
+                showElement(submitBtn); // 確保提交按鈕在新測驗生成時是可見的
+                
+            } catch (error) {
+                console.error("生成內容失敗:", error);
+                hideElement(messageBox);
+                showElement(errorAlert);
+                errorMessage.textContent = error.message || "無法連接到內容生成服務，請稍後再試。";
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // --- UI 渲染與互動 ---
+
+        function setLoading(isLoading) {
+            generateBtn.disabled = isLoading;
+            if (isLoading) {
+                btnText.textContent = "生成中...";
+                showElement(loadingSpinner);
+            } else {
+                btnText.textContent = "生成文章與測驗";
+                hideElement(loadingSpinner);
+            }
+        }
+
+        function showElement(element, text = null) {
+            element.classList.remove('hidden');
+            if (text !== null) {
+                element.textContent = text;
+            }
+        }
+
+        function hideElement(element) {
+            element.classList.add('hidden');
+        }
+
+        function renderQuiz(data) {
+            articleText.textContent = data.article;
+            questionsList.innerHTML = '';
+            
+            data.questions.forEach((q, qIndex) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'p-4 border border-gray-200 rounded-lg shadow-sm bg-white';
+                questionDiv.id = `question-${qIndex}`;
+                
+                let html = `<h4 class="text-lg font-semibold text-gray-900 mb-3">Q${qIndex + 1}: ${q.question_text}</h4>`;
+                
+                q.options.forEach((option, oIndex) => {
+                    const optionId = `q${qIndex}o${oIndex}`;
+                    html += `
+                        <div class="flex items-center p-2 rounded-md transition duration-100 hover:bg-gray-50 option-container" data-qindex="${qIndex}" data-oindex="${oIndex}">
+                            <input type="radio" id="${optionId}" name="question${qIndex}" value="${oIndex}" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary radio-input">
+                            <label for="${optionId}" class="ml-3 text-base font-medium text-gray-700 w-full cursor-pointer">
+                                ${String.fromCharCode(65 + oIndex)}. ${option}
+                            </label>
+                        </div>
+                    `;
+                });
+
+                questionDiv.innerHTML = html;
+                questionsList.appendChild(questionDiv);
+            });
+
+            // 添加事件監聽器
+            questionsList.querySelectorAll('.radio-input').forEach(input => {
+                input.addEventListener('change', checkCompletion);
+            });
+            
+            // 重置用戶答案
+            data.questions.forEach(q => q.userAnswer = null);
+        }
+
+        function checkCompletion() {
+            let answeredCount = 0;
+            quizData.questions.forEach((q, qIndex) => {
+                const selected = document.querySelector(`input[name="question${qIndex}"]:checked`);
+                if (selected) {
+                    q.userAnswer = parseInt(selected.value);
+                    answeredCount++;
+                } else {
+                    q.userAnswer = null;
+                }
+            });
+
+            // 全部作答後才啟用提交按鈕
+            submitBtn.disabled = answeredCount !== quizData.questions.length;
+        }
+
+        function handleSubmit() {
+            if (!quizData || submitBtn.disabled) return;
+
+            let correctCount = 0;
+            
+            // 遍歷所有問題並計分
+            quizData.questions.forEach((q, qIndex) => {
+                const questionDiv = document.getElementById(`question-${qIndex}`);
+                const options = questionDiv.querySelectorAll('.option-container');
+                const isCorrect = q.userAnswer === q.correct_answer_index;
+
+                // 移除所有先前的標記
+                options.forEach(opt => opt.classList.remove('bg-green-100', 'bg-red-100'));
+
+                // 根據作答結果標記選項
+                options.forEach(opt => {
+                    const oIndex = parseInt(opt.dataset.oindex);
+                    const label = opt.querySelector('label');
+                    const input = opt.querySelector('input');
+
+                    // 禁用所有單選按鈕
+                    input.disabled = true;
+
+                    if (oIndex === q.correct_answer_index) {
+                        // 正確答案標記為綠色
+                        opt.classList.add('bg-green-100', 'font-bold');
+                        label.innerHTML += ' <span class="text-green-700">(正確答案)</span>';
+                    } else if (oIndex === q.userAnswer) {
+                        // 錯誤作答標記為紅色
+                        opt.classList.add('bg-red-100', 'font-bold');
+                    }
+                });
+
+                if (isCorrect) {
+                    correctCount++;
+                }
+            });
+
+            // 顯示結果
+            scoreText.textContent = `您答對了 ${correctCount} 題，總共 ${quizData.questions.length} 題。`;
+            showElement(scoreResult);
+            hideElement(submitBtn); // 隱藏提交按鈕
+
+            // 啟用生成按鈕，方便開始下一輪
+            generateBtn.disabled = false;
+        }
+
+
+        // --- 初始化與事件綁定 ---
+
+        function initApp() {
+            generateBtn.addEventListener('click', generateContent);
+            submitBtn.addEventListener('click', handleSubmit);
+
+            // 確保頁面載入時禁用提交按鈕，因為還沒有題目
+            submitBtn.disabled = true; 
+        }
+
+        window.onload = initApp;
+
+    </script>
+</body>
+</html>
