@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mythological Fortune Draw</title>
+    <!-- Include Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind with Inter font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#f59e0b', /* Gold/Divination Theme Color */
+                        'primary-dark': '#d97706',
+                        'accent': '#10b981',
+                        'background': '#fffbeb', /* Light Cream/Yellow Background */
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Ensure body covers the full viewport */
+        body {
+            min-height: 100vh;
+            background-color: #fffbeb;
+            font-family: 'Inter', sans-serif;
+        }
+        /* Smooth transitions for inputs and buttons */
+        input[type="date"], input[type="text"], button {
+            transition: all 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-background flex items-start justify-center p-4 sm:p-8">
+
+    <div id="app-container" class="w-full max-w-2xl bg-white shadow-2xl rounded-2xl p-6 sm:p-10 border border-yellow-200">
+
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-yellow-700 mb-2 text-center">
+            ✨ Daily Fortune Draw ✨
+        </h1>
+        <p class="text-center text-gray-500 mb-8 sm:mb-12">
+            Enter your personal details to activate the divination system and draw your exclusive daily fortune.
+        </p>
+
+        <!-- Personal Information Section -->
+        <section class="mb-10 p-6 bg-yellow-50 rounded-xl shadow-inner border-l-4 border-primary">
+            <h2 class="text-xl font-bold text-primary-dark mb-4 border-b pb-2 text-yellow-800">🔮 Divination Activation Data</h2>
+            
+            <div class="space-y-4">
+                <!-- Name -->
+                <div>
+                    <label for="full-name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="full-name" placeholder="Enter your full name"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                </div>
+                
+                <!-- Date of Birth -->
+                <div class="sm:flex sm:space-x-4 space-y-4 sm:space-y-0">
+                    <div class="sm:w-1/2">
+                        <label for="dob" class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                        <input type="date" id="dob" onchange="calculateZodiac()"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                    </div>
+
+                    <!-- Zodiac Sign (Auto-calculated) -->
+                    <div class="sm:w-1/2">
+                        <label for="zodiac" class="block text-sm font-medium text-gray-700 mb-1">Your Zodiac Sign (Divination Basis)</label>
+                        <div id="zodiac-display" class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-500 flex items-center h-10">
+                            Please select date...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Submission Button -->
+        <button id="submit-btn" onclick="startFortuneDraw()"
+            class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl transition duration-300 shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/50 text-lg">
+            Draw Today's Fortune 
+        </button>
+        
+        <!-- Result Display Area (Initially Hidden) -->
+        <div id="result-box" class="mt-10 p-6 bg-yellow-100 border-l-4 border-primary rounded-lg shadow-inner hidden">
+            <h2 class="text-2xl font-bold text-yellow-800 mb-4">📜 Your Daily Fortune</h2>
+            <div id="result-content" class="text-gray-700 space-y-3">
+                <!-- Result content will be injected here by JS -->
+            </div>
+            <div class="mt-4 text-sm text-gray-600">
+                <p><strong>A Sincere Heart is Effective:</strong> Divination results are for reference only. Facing life proactively is the best fortune!</p>
+            </div>
+        </div>
+
+        <!-- Warning/Alert Message Box (For incomplete data) -->
+        <div id="alert-box" class="mt-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg hidden" role="alert">
+            <p class="font-bold">🚨 Incomplete Data!</p>
+            <p id="alert-message">You must enter your full name and select a valid date of birth to start the draw.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- Fortune Definitions (Tiers adjusted for 80%/19%/1% probability) ---
+        const FORTUNE_TIERS = [
+            // Tier 1: High Luck (80%)
+            {
+                title: "High Fortune",
+                probability: 80.00,
+                outcomes: [
+                    { title: "Greatest Luck (Top Tier) ✨", class: 'text-green-600', text: "A truly blessed day! Everything will proceed smoothly, especially in finance and relationships. Seize the opportunity and boldly pursue new ventures. 🎉💰" },
+                    { title: "Good Luck (Upper Tier) 🍀", class: 'text-green-600', text: "Steady progress awaits! Your efforts will be rewarded. Seek advice and collaboration, as it will significantly boost your career or academic pursuits. 🤝✅" },
+                    { title: "Medium Luck (Middle Tier) 🧘‍♀️", class: 'text-blue-600', text: "A day without major setbacks. Handle details with care and maintain a peaceful mindset. Stability is key, and solid foundations will see you through. 🛡️" }
+                ]
+            },
+            // Tier 2: Neutral Luck (19%)
+            {
+                title: "Neutral Fortune",
+                probability: 19.00,
+                outcomes: [
+                    { title: "Below Medium (Lower Middle Tier) ⚠️", class: 'text-yellow-600', text: "Minor hurdles may appear. Exercise patience and avoid major decisions. Focus on consolidating your current situation and wait for a clearer time. 🚧" }
+                ]
+            },
+            // Tier 3: Bad Luck (1%) - Detailed Mythological Fortunes
+            {
+                title: "Bad Fortune",
+                probability: 1.00,
+                detailed: true,
+                outcomes: [
+                    { title: "Satan's Shadow (Grade 35) 💀", theme: "Hidden dangers; proceed with caution. 🤫", career: "Prone to setbacks; handle relationships cautiously. 🤝", love: "Misunderstandings easily arise; avoid acting on impulse. ❤️‍🩹", finance: "Investments may lead to loss; be vigilant. 💸", suggestion: "Keep a low profile and trust no one easily. 🛡️" },
+                    { title: "Loki's Trap (Grade 34) 🎭", theme: "Deceptive appearances; actually harmful. 🚫", career: "New opportunities carry risk; investigate thoroughly. 🔎", love: "Prone to being misled; beware of third parties. 💔", finance: "Do not invest or lend blindly. 🛑", suggestion: "Think twice before acting; avoid impulsivity. 🤔" },
+                    { title: "Odin's Mist (Grade 33) 🌫️", theme: "Unclear path; calm judgment needed. 🧭", career: "Projects face major resistance; don't act rashly. 📉", love: "Poor communication; patience is required. 💬", finance: "Financial risk is increasing. 🚨", suggestion: "Stabilize the situation; avoid risks. ⚓" },
+                    { title: "Zeus's Storm (Grade 32) ⛈️", theme: "High volatility; avoid risks. 🌪️", career: "Impulsive decisions easily lead to failure. ⚡", love: "Conflict escalates; avoid arguments. 💢", finance: "Expenses increase; practice restraint. 🤏", suggestion: "Conservatism is best; postpone actions. 🐌" },
+                    { title: "Hercules' Burden (Grade 31) 🏋️", theme: "Heavy pressure; cautious action needed. 🥵", career: "Tasks are heavy; do not overexert yourself. 💪", love: "Relationship tension; seek harmony. 🕊️", finance: "Significant financial pressure. 😬", suggestion: "Act within your limits; avoid taking chances. 🧘" },
+                    { title: "Perseus' Dilemma (Grade 30) ❓", theme: "Difficult choices; prone to error. 🙅", career: "Many plans, but high risk. 🎲", love: "Misunderstandings are likely. 😥", finance: "Investments require caution. ✋", suggestion: "Analyze pros and cons; choose carefully. ⚖️" },
+                    { title: "Athena's Misstep (Grade 29) ♟️", theme: "Insufficient strategy; beware passivity. 💤", career: "Strategy needs improvement, or progress will stall. 📝", love: "Poor communication easily leads to errors. 🔇", finance: "Guard against financial losses. 🛡️", suggestion: "Plan carefully and advance steadily. 🚶" },
+                    { title: "Venus' Mirage (Grade 28) 💔", theme: "Emotional turmoil; don't trust promises. 🥀", career: "Unstable collaborative relationships. 🔗", love: "Beware of emotional traps. 🎣", finance: "Increased financial risk. ⚠️", suggestion: "Protect yourself; don't give too much easily. 🧱" },
+                    { title: "Hera's Entanglement (Grade 27) 🐍", theme: "Petty interference; keep a low profile. 🤫", career: "Watch out for internal conflict. ⚔️", love: "Complex relationships; avoid impulsivity. 🌀", finance: "Not suitable for large expenditures. 🛍️", suggestion: "Stay low-key and cautious; handle adversaries wisely. 🦊" },
+                    { title: "Thor's Thunder (Grade 26) 🔨", theme: "Forcing progress leads to blockage. 🛑", career: "Impulsive decisions easily lead to failure. 💥", love: "Frequent disputes; remain calm. 🧊", finance: "High investment risk. 📉", suggestion: "Go with the flow; do not force matters. ⛵" },
+                    { title: "Freyr's Lost Path (Grade 25) 🌲", theme: "Unclear direction; beware of missteps. 🕳️", career: "Project direction is unstable; needs adjustment. 🔄", love: "Romantic relationships are vague. ❓", finance: "Financial planning requires caution. 📏", suggestion: "Observe the situation first, then act. 👀" },
+                    { title: "Poseidon's Snare (Grade 24) 🌊", theme: "Volatile environment; guard against risks. 🦈", career: "Unfavorable external environment; easily obstructed. 🚧", love: "Relationship easily disrupted. 🌪️", finance: "High financial pressure. 😰", suggestion: "Respond to changes cautiously. ☔" },
+                    { title: "Hermes' Miscommunication (Grade 23) ✉️", theme: "Unreliable information; don't be gullible. 📢", career: "Misleading news could lead to losses. ❌", love: "Gossip easily disrupts relationships. 🗣️", finance: "Beware of scams or investment failure. 🛑", suggestion: "Verify information before taking action. 💯" },
+                    { title: "Apollo's Shadow (Grade 22) ☀️", theme: "Unstable opportunities; don't rush. 🌑", career: "Many apparent opportunities, but high actual risk. ⚠️", love: "Unstable relationship; don't promise easily. 💍", finance: "Beware of investment losses. 📉", suggestion: "Proceed with caution; stabilize the situation. 🧘" },
+                    { title: "Minotaur's Labyrinth (Grade 21) 🐂", theme: "Many traps; easy to get lost. 🌀", career: "Complex projects; prone to mistakes. 😵", love: "Relationship is trapped. 🕸️", finance: "High financial pressure. 😩", suggestion: "Choose carefully; avoid risks. 💡" },
+                    { title: "Bacchus' Turmoil (Grade 20) 🍷", theme: "Emotional volatility; control desires. 🎭", career: "Impatience and restlessness lead to mistakes. 🤯", love: "Emotional outbursts cause conflict. 😠", finance: "Impulsive spending causes pressure. 💸", suggestion: "Manage emotions; maintain a steady pace. ⏱️" },
+                    { title: "Tyr's Breach of Trust (Grade 19) ✋", theme: "Integrity challenged; uphold principles. ⚖️", career: "Treat collaborations with caution. 🤝", love: "Trust easily damaged. 💔", finance: "Beware of losses. 💰", suggestion: "Stick to your principles; guard against risks. 📜" },
+                    { title: "Hestia's Cold Wind (Grade 18) 🌬️", theme: "Instability in home or life. 🏠", career: "External resistance is high; project slow-down. 🐌", love: "Family relationship needs reconciliation. 🕊️", finance: "Tight budget. 📉", suggestion: "Stabilize the foundation; prevent the unexpected. 🏗️" },
+                    { title: "Perseus' Maze (Grade 17) 🤯", theme: "Many traps; don't act rashly. 🐭", career: "Complex projects easily fail. 💥", love: "Many misunderstandings; don't trust others easily. 🤫", finance: "Beware of losses. 💸", suggestion: "Advance steadily; choose carefully. 👣" },
+                    { title: "Athena's Test (Grade 16) 🦉", theme: "Lack of wisdom; be cautious. 🧠", career: "Insufficient strategy; easily blocked. 🛑", love: "Misunderstanding increases; remain calm. ❄️", finance: "Unstable financial planning. 😬", suggestion: "Act cautiously; plan before moving. 🗺️" },
+                    { title: "Venus' Illusion (Grade 15) 💖", theme: "Emotional confusion; stay sober. 😵‍💫", career: "Complex relationships; need to stabilize. 🧘", love: "Prone to temptation or being misled. 💔", finance: "Beware of spending. 💳", suggestion: "Judge clearly; don't trust easily. 👁️" },
+                    { title: "Thor's Wind Strike (Grade 14) 💨", theme: "Sudden accidents; slow down action. 🚨", career: "Sudden events may disrupt work. 🌪️", love: "Minor conflicts should be avoided from escalating. 😤", finance: "Unexpected expenses increase. 💸", suggestion: "Keep calm in face of trouble; stabilize the situation. 🌬️" },
+                    { title: "Freyr's Withered Tree (Grade 13) 🌳", theme: "Temporary slump; don't lose heart. 💧", career: "No short-term breakthrough; patience needed. ⌛", love: "Relationship fading; needs maintenance. 🫂", finance: "Revenue is not obvious. 💰", suggestion: "Wait for the opportunity; don't rush. 🛑" },
+                    { title: "Satan's Haze (Grade 12) 😈", theme: "Latent danger; prevent trouble. 🛡️", career: "Easily affected by adversaries or resistance. 📉", love: "Small misunderstandings easily escalate. 💣", finance: "High investment risk. ⚠️", suggestion: "Prevent small issues from growing; steady progress. 🌱" },
+                    { title: "Loki's Metamorphosis (Grade 11) 🎭", theme: "Volatile environment; beware traps. 🌀", career: "Frequent external changes; handle with caution. 🧐", love: "Unstable relationship; avoid impulsivity. 😠", finance: "Not suitable for aggressive investment. 💰", suggestion: "Adapt quickly; be careful. 🦎" },
+                    { title: "Zeus's Wrath (Grade 10) 💥", theme: "Sudden event; actions obstructed. ⚡", career: "Plans are easily disrupted. 🚧", love: "Conflict escalates; patience is required. 🧘", finance: "Expenses increase. 💸", suggestion: "Stabilize mindset; don't rush. ✋" },
+                    { title: "Hercules' Shackles (Grade 9) ⛓️", theme: "Surrounded by difficulty; don't act rashly. 🤕", career: "High work pressure; need to proceed step-by-step. 🧱", love: "Poor communication. 🤐", finance: "Financial caution is needed. 📈", suggestion: "Handle difficulties steadily. 🐢" },
+                    { title: "Perseus' Perilous Path (Grade 8) ⚔️", theme: "Dangerous road ahead; choose carefully. 🗺️", career: "Project resistance is high; needs strategy. 📝", love: "Misunderstandings easily arise. 😥", finance: "Don't trust investments easily. 📉", suggestion: "Choose cautiously. ⚖️" },
+                    { title: "Athena's Covert Plot (Grade 7) 🤫", theme: "Apparent ease hides risks. 🕵️", career: "Calm surface, but internal risks cannot be ignored. ⚠️", love: "Guard against disruption from others. 💔", finance: "Investments need to be stable. 🧘", suggestion: "Prevent small issues from growing; don't trust easily. 👀" },
+                    { title: "Venus' Misguided Journey (Grade 6) 💖", theme: "Emotional twists; don't trust promises. 🥀", career: "Collaboration easily changes. 🔄", love: "Misunderstandings easily arise. 😢", finance: "Beware of financial losses. 💸", suggestion: "Protect yourself; don't trust easily. 👤" },
+                    { title: "Thor's Rumble (Grade 5) 🌩️", theme: "Sudden impact; exercise caution. 🚧", career: "External sudden situations disrupt plans. 💥", love: "Frequent disputes; avoid haste. 😠", finance: "Investments or expenses need caution. 📉", suggestion: "Stabilize the situation; don't act on impulse. ⚓" },
+                    { title: "Freyr's Falling Leaves (Grade 4) 🍂", theme: "Short-term slump; requires patience. ⏳", career: "No temporary gains; accumulate experience. 📚", love: "Relationship needs maintenance. 💖", finance: "Steady income and expenditure, no major gains. 💸", suggestion: "Wait patiently; do not rush. 🐢" },
+                    { title: "Satan's Scheme (Grade 3) 😈", theme: "Surrounded by danger; beware of adversaries. ⚔️", career: "Frequent interference from adversaries or competitors. 📉", love: "Easily misled. 🤥", finance: "Investments require caution. 🛑", suggestion: "Prevent trouble before it happens; be careful. 🤫" },
+                    { title: "Loki's Delusion (Grade 2) 😵", theme: "Appearances deceive; don't be gullible. 🎭", career: "Smooth surface, but hidden traps. 🕸️", love: "Unstable relationship. 💔", finance: "Unstable finances; don't rush in. 🚨", suggestion: "Act cautiously; win through stability. 🧱" },
+                    { title: "Zeus's Shadow (Grade 1) ☁️", theme: "High volatility; don't rush. 🌪️", career: "Complex environment; easily obstructed. 🚧", love: "Conflict easily arises; need to be calm. 🧘", finance: "Avoid risky investments. 🛑", suggestion: "Focus on defense; win through stability. 🛡️" }
+                ]
+            }
+        ];
+
+        // --- Zodiac Calculation Logic (English Output) ---
+        function calculateZodiac() {
+            const dobInput = document.getElementById('dob');
+            const zodiacDisplay = document.getElementById('zodiac-display');
+            
+            const dateStr = dobInput.value;
+            if (!dateStr) {
+                zodiacDisplay.innerHTML = 'Please select date...';
+                zodiacDisplay.classList.remove('text-primary-dark');
+                zodiacDisplay.classList.add('text-gray-500');
+                return;
+            }
+
+            const date = new Date(dateStr);
+            const month = date.getMonth() + 1; // 1-12
+            const day = date.getDate();
+
+            let zodiac = 'Invalid Date or Out of Range'; 
+
+            // Zodiac determination logic
+            if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) {
+                zodiac = 'Capricorn (Earth)';
+            } else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) {
+                zodiac = 'Aquarius (Air)';
+            } else if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) {
+                zodiac = 'Pisces (Water)';
+            } else if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) {
+                zodiac = 'Aries (Fire)';
+            } else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) {
+                zodiac = 'Taurus (Earth)';
+            } else if ((month === 5 && day >= 21) || (month === 6 && day <= 21)) {
+                zodiac = 'Gemini (Air)';
+            } else if ((month === 6 && day >= 22) || (month === 7 && day <= 22)) {
+                zodiac = 'Cancer (Water)';
+            } else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) {
+                zodiac = 'Leo (Fire)';
+            } else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) {
+                zodiac = 'Virgo (Earth)';
+            } else if ((month === 9 && day >= 23) || (month === 10 && day <= 23)) {
+                zodiac = 'Libra (Air)';
+            } else if ((month === 10 && day >= 24) || (month === 11 && day <= 21)) {
+                zodiac = 'Scorpio (Water)';
+            } else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) {
+                zodiac = 'Sagittarius (Fire)';
+            }
+
+            zodiacDisplay.innerHTML = zodiac;
+            zodiacDisplay.classList.remove('text-gray-500');
+            zodiacDisplay.classList.add('text-primary-dark', 'font-medium');
+            zodiacDisplay.setAttribute('data-zodiac', zodiac);
+        }
+
+        // --- Core Draw Logic ---
+        function selectFortune() {
+            const randomNumber = Math.random() * 100; // 0 to 99.999...
+            let cumulativeProbability = 0;
+
+            for (const tier of FORTUNE_TIERS) {
+                cumulativeProbability += tier.probability;
+                if (randomNumber < cumulativeProbability) {
+                    // Found the corresponding tier
+                    const outcomes = tier.outcomes;
+                    // Randomly select one result from that tier
+                    const randomIndex = Math.floor(Math.random() * outcomes.length);
+                    return outcomes[randomIndex];
+                }
+            }
+            // Fallback to the lowest chance tier
+            return FORTUNE_TIERS[FORTUNE_TIERS.length - 1].outcomes[0];
+        }
+
+        // Start Draw and Display Results
+        function startFortuneDraw() {
+            const fullName = document.getElementById('full-name').value.trim();
+            const dob = document.getElementById('dob').value;
+            const zodiacElement = document.getElementById('zodiac-display');
+            const zodiac = zodiacElement.getAttribute('data-zodiac') || '';
+            const resultBox = document.getElementById('result-box');
+            const resultContent = document.getElementById('result-content');
+            const alertBox = document.getElementById('alert-box');
+            
+            // --- Validation Logic ---
+            if (!fullName || !dob || zodiac === 'Invalid Date or Out of Range' || !zodiac) {
+                // Show alert
+                alertBox.classList.remove('hidden');
+                resultBox.classList.add('hidden');
+                document.getElementById('alert-message').textContent = 'You must enter your full name and select a valid date of birth to start the draw.';
+                window.scrollTo(0, 0); // Scroll to top to see the alert
+                return;
+            }
+
+            // Hide alert
+            alertBox.classList.add('hidden');
+
+            // --- Draw Fortune and Generate Result ---
+            const fortune = selectFortune();
+            
+            // Extract the element (e.g., Earth, Air, Fire, Water)
+            const match = zodiac.match(/\((.*?)\)/);
+            const element = match ? match[1] : 'Elemental Influence';
+
+            let fortuneDetailsHTML = '';
+            
+            if (fortune.detailed) {
+                // Detailed 'Bad Fortune' format
+                const themeColor = fortune.class.replace('text-', 'border-') + ' bg-red-50'; // Use red for borders/background
+                
+                fortuneDetailsHTML = `
+                    <div class="mt-4 p-4 border-2 border-red-500 bg-red-50 rounded-lg">
+                        <p class="text-2xl font-extrabold ${fortune.class} mb-2 text-red-700">${fortune.title}</p>
+                        <p class="text-lg font-semibold text-red-600 mb-3">Theme: ${fortune.theme}</p>
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>Career:</strong> ${fortune.career}</li>
+                            <li><strong>Love:</strong> ${fortune.love}</li>
+                            <li><strong>Finance:</strong> ${fortune.finance}</li>
+                            <li><strong>Suggestion:</strong> ${fortune.suggestion}</li>
+                        </ul>
+                    </div>
+                `;
+            } else {
+                 // General Fortune format
+                fortuneDetailsHTML = `
+                    <div class="mt-4 p-4 border-2 border-primary-dark bg-yellow-100 rounded-lg">
+                        <p class="text-2xl font-extrabold ${fortune.class} mb-2">${fortune.title}</p>
+                        <p class="text-lg text-gray-800">${fortune.text}</p>
+                    </div>
+                `;
+            }
+
+            // Combine final result
+            resultContent.innerHTML = `
+                <p><strong>Dear Seeker ${fullName},</strong></p>
+                <p>Based on your data (Zodiac: ${zodiac}), the divination system has drawn for you today:</p>
+                
+                ${fortuneDetailsHTML}
+
+                <hr class="my-4 border-gray-300">
+                <p class="text-sm text-gray-600">This reading suggests that your **${element}** traits will play a key role today. Please heed the counsel of the slip.</p>
+            `;
+
+            // Display result
+            resultBox.classList.remove('hidden');
+            
+            // Smooth scroll to the result area
+            resultBox.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Initialization: Auto-calculate zodiac on page load if date is present
+        window.onload = function() {
+            calculateZodiac();
+        };
+    </script>
+</body>
+</html>
