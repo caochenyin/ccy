@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Slot Machine Discount Draw</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Set font to Inter for good readability */
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Custom styles for the slot reels */
+        .slot-reel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100px;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #333;
+            background-color: #f7f7f7;
+            border-radius: 1rem;
+            border: 4px solid #fcd34d; /* Border uses gold/amber color */
+            overflow: hidden;
+            transition: transform 0.2s ease-out;
+            box-shadow: 
+                inset 0 0 10px rgba(0, 0, 0, 0.2), 
+                0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+                0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Base button style */
+        .spin-button {
+            background-image: linear-gradient(to right, #fcd34d, #f59e0b); /* Gold gradient */
+            transition: all 0.3s ease;
+            box-shadow: 0 4px #b45309; /* Deep shadow for 3D effect */
+        }
+        .spin-button:hover:not(:disabled) {
+            background-image: linear-gradient(to right, #fde047, #fbb022);
+            transform: translateY(-2px);
+            box-shadow: 0 6px #b45309;
+        }
+        .spin-button:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 2px #b45309;
+        }
+        .spin-button:disabled {
+            background-color: #d1d5db;
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Final result display style */
+        .result-box {
+            border: 3px dashed #b45309;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 md:p-8 text-center">
+        
+        <h1 class="text-3xl md:text-4xl font-extrabold text-yellow-700 mb-2">
+            Lucky Discount Slot Machine
+        </h1>
+        <p class="text-gray-500 mb-8">
+            Click the button below to win your exclusive discount code!
+        </p>
+
+        <!-- Slot Reels Area -->
+        <div id="slot-container" class="flex justify-center space-x-3 mb-8">
+            <div id="reel1" class="slot-reel w-1/3">GO</div>
+            <div id="reel2" class="slot-reel w-1/3">!</div>
+            <div id="reel3" class="slot-reel w-1/3">!</div>
+        </div>
+
+        <!-- Spin Button -->
+        <button id="spin-button" class="spin-button w-full py-3 text-lg font-bold text-white rounded-xl uppercase tracking-wider">
+            Start Spin (One Chance Only)
+        </button>
+
+        <!-- Result Display Area -->
+        <div id="result-area" class="mt-8 hidden">
+            <div class="result-box p-4 rounded-xl bg-yellow-50">
+                <p class="text-xl font-semibold text-gray-700 mb-2">
+                    Congratulations! You won: <span id="prize-percentage" class="text-2xl font-extrabold text-red-600"></span>
+                </p>
+                <div class="flex flex-col items-center space-y-3">
+                    <p class="text-sm font-medium text-gray-600">Your Exclusive Discount Code:</p>
+                    <div class="flex w-full max-w-sm border-2 border-dashed border-green-500 bg-green-50 p-3 rounded-lg shadow-inner">
+                        <span id="discount-code" class="text-xl font-bold text-green-700 flex-grow text-left truncate"></span>
+                        <button id="copy-button" class="ml-3 px-3 py-1 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition duration-150">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <p id="freemasters-tip" class="text-red-500 mt-3 font-bold text-lg hidden">
+                !!! Congratulations! You won the 100% Free Order Grand Prize !!!
+            </p>
+        </div>
+
+        <!-- Error or Message Modal (to replace alert()) -->
+        <div id="message-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center p-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl max-w-xs text-center">
+                <p id="modal-text" class="text-lg font-semibold text-gray-800 mb-4">The draw has ended. Please do not try again.</p>
+                <button onclick="document.getElementById('message-modal').classList.add('hidden')" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Core Configuration: Prizes and Probability Distribution (Seller Optimized) ---
+        const PRIZES = [
+            // Seller optimized: Lowest discounts (3%, 5%) account for 75% of total probability
+            { label: '3% Off', text: '💸 3% Off', code: 'JFA7297W6V1A', discount: '3%', probability: 45.0000 },
+            { label: '5% Off', text: '🛍️ 5% Off', code: '57SKTKCX6YXE', discount: '5%', probability: 30.0000 },
+            
+            // Mid-range discounts
+            { label: '8% Off', text: '💰 8% Off', code: 'J2VH4E41GSW6', discount: '8%', probability: 15.0000 },
+            { label: '10% Off', text: '🎁 10% Off', code: 'WBBF6434BC6Y', discount: '10%', probability: 5.0000 },
+            
+            // Higher discounts
+            { label: '12% Off', text: '💎 12% Off', code: 'HD21EJ6N3QXX', discount: '12%', probability: 4.0000 },
+            { label: '20% Off', text: '✨ 20% Off', code: '91TGY7Z7YN03', discount: '20%', probability: 0.9900 },
+            
+            // Grand Prize: 100% Free Order (0.01% probability)
+            { label: 'Free Order', text: '👑 Free Order', code: 'FREEMAST3R', discount: '100%', probability: 0.0100 } 
+        ];
+
+        // Calculate cumulative probability (for draw logic)
+        let cumulativeProbability = 0;
+        const prizePool = PRIZES.map(prize => {
+            cumulativeProbability += prize.probability;
+            return {
+                ...prize,
+                cumulative: cumulativeProbability / 100
+            };
+        });
+
+        const REEL_VALUES = prizePool.map(p => p.text);
+
+        // --- Get DOM Elements ---
+        const reels = [
+            document.getElementById('reel1'),
+            document.getElementById('reel2'),
+            document.getElementById('reel3')
+        ];
+        const spinButton = document.getElementById('spin-button');
+        const resultArea = document.getElementById('result-area');
+        const prizePercentage = document.getElementById('prize-percentage');
+        const discountCode = document.getElementById('discount-code');
+        const copyButton = document.getElementById('copy-button');
+        const freemastersTip = document.getElementById('freemasters-tip');
+        const messageModal = document.getElementById('message-modal');
+        const modalText = document.getElementById('modal-text');
+
+        let isSpinning = false;
+
+        // --- Core Draw Logic: Selects prize based on probability ---
+        function selectPrize() {
+            const randomNumber = Math.random(); // Between 0 and 1
+            // Iterate through the cumulative probability pool to find the first prize greater than the random number
+            for (const prize of prizePool) {
+                if (randomNumber < prize.cumulative) {
+                    return prize;
+                }
+            }
+            // Fallback (should theoretically not be reached)
+            return prizePool[prizePool.length - 1]; 
+        }
+
+        // --- Slot Machine Animation Logic ---
+        function spinReel(reel, finalValue, duration, delay) {
+            return new Promise(resolve => {
+                const intervalDuration = 50; // Fast interval for switching values
+                const totalSteps = duration / intervalDuration;
+                let step = 0;
+
+                setTimeout(() => {
+                    const spinInterval = setInterval(() => {
+                        // Spinning animation: randomly select a value from the prize list
+                        const randomIndex = Math.floor(Math.random() * REEL_VALUES.length);
+                        reel.textContent = REEL_VALUES[randomIndex];
+                        step++;
+
+                        // Gradually slow down and stop
+                        if (step >= totalSteps) {
+                            clearInterval(spinInterval);
+                            // Set final result
+                            reel.textContent = finalValue;
+                            reel.style.transform = 'translateY(0)';
+                            resolve();
+                        } else if (step > totalSteps * 0.7) {
+                            // Last 30% of steps slow down or lock near the target value
+                            reel.style.transform = `translateY(${Math.random() * 10 - 5}px)`;
+                        }
+
+                    }, intervalDuration);
+                }, delay);
+            });
+        }
+
+        // --- Main Draw Process ---
+        async function startSpin() {
+            if (isSpinning || spinButton.disabled) {
+                modalText.textContent = "Only one draw per user is allowed!";
+                messageModal.classList.remove('hidden');
+                return;
+            }
+
+            spinButton.disabled = true; // Disable button to prevent double-clicking
+            isSpinning = true;
+            resultArea.classList.add('hidden');
+            freemastersTip.classList.add('hidden');
+
+            const result = selectPrize();
+
+            // Set animation duration and delay (to make reels stop sequentially)
+            const duration1 = 2000;
+            const duration2 = 2500;
+            const duration3 = 3000;
+
+            await Promise.all([
+                spinReel(reels[0], result.text, duration1, 0),
+                spinReel(reels[1], result.text, duration2, 500),
+                spinReel(reels[2], result.text, duration3, 1000)
+            ]);
+
+            // Display results
+            isSpinning = false;
+            displayResult(result);
+        }
+
+        // --- Display Result and prepare for copy ---
+        function displayResult(prize) {
+            prizePercentage.textContent = `${prize.discount}% Discount`;
+            discountCode.textContent = prize.code;
+            resultArea.classList.remove('hidden');
+
+            // Show extra visual hint for the Free Order Grand Prize
+            if (prize.discount === '100%') {
+                freemastersTip.classList.remove('hidden');
+            }
+        }
+
+        // --- Copy Button Functionality ---
+        copyButton.addEventListener('click', () => {
+            const code = discountCode.textContent;
+            // Use execCommand('copy') as navigator.clipboard.writeText() may not work in iframes
+            if (document.execCommand('copy')) {
+                const originalText = copyButton.textContent;
+                copyButton.textContent = 'Copied!';
+                copyButton.classList.remove('bg-green-500');
+                copyButton.classList.add('bg-yellow-500');
+                
+                // Restore button text after 3 seconds
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                    copyButton.classList.add('bg-green-500');
+                    copyButton.classList.remove('bg-yellow-500');
+                }, 3000);
+            } else {
+                 // Handle copy failure
+                console.error('Copy failed, falling back to modal.');
+                modalText.textContent = `Copy failed. Please manually copy: ${code}`;
+                messageModal.classList.remove('hidden');
+            }
+        });
+
+        // Bind spin button event
+        spinButton.addEventListener('click', startSpin);
+
+    </script>
+</body>
+</html>
