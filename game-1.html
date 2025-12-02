@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自訂單詞學習俄羅斯方塊</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Inter 字体并设置背景 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* 浅灰色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 游戏板的自定义样式 */
+        #game-board {
+            border: 4px solid #4a90e2; /* 蓝色边框 */
+            background-color: #1a202c; /* 深色背景 */
+            display: grid;
+            grid-template-rows: repeat(20, 1fr);
+            grid-template-columns: repeat(10, 1fr);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            border: 1px solid #333; /* 块之间的分隔线 */
+        }
+
+        /* 块的颜色定义 (使用经典 Tetris 颜色) */
+        .color-0 { background-color: #00000000; } /* 空白 */
+        .color-1 { background-color: #00bcd4; } /* I: 青色 */
+        .color-2 { background-color: #4caf50; } /* L: 绿色 */
+        .color-3 { background-color: #ff9800; } /* J: 橙色 */
+        .color-4 { background-color: #ffc107; } /* T: 黄色 */
+        .color-5 { background-color: #f44336; } /* O: 红色 */
+        .color-6 { background-color: #9c27b0; } /* S: 紫色 */
+        .color-7 { background-color: #2196f3; } /* Z: 蓝色 */
+
+        /* 模态框动画 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            animation: fadeInScale 0.3s ease-out forwards;
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        /* 响应式调整游戏板大小 */
+        @media (max-width: 640px) {
+            #game-board {
+                width: 80vw;
+                height: 160vw;
+            }
+        }
+        @media (min-width: 641px) {
+            #game-board {
+                width: 300px;
+                height: 600px;
+            }
+        }
+    </style>
+</head>
+<body class="select-none">
+
+    <div id="game-container" class="flex flex-col md:flex-row gap-8 items-center md:items-start p-4">
+        
+        <!-- 左侧信息面板 -->
+        <div id="info-panel" class="w-full md:w-56 p-4 bg-white rounded-xl shadow-lg flex flex-col gap-4 order-2 md:order-1">
+            <h1 class="text-3xl font-extrabold text-indigo-700 mb-2">單詞方塊</h1>
+
+            <div class="bg-indigo-50 p-3 rounded-lg">
+                <p class="text-sm font-semibold text-indigo-600">得分:</p>
+                <p id="score" class="text-3xl font-bold text-gray-800">0</p>
+            </div>
+
+            <!-- 下一个方块 -->
+            <div class="bg-gray-100 p-3 rounded-lg">
+                <p class="text-sm font-semibold text-gray-600 mb-2">下一個:</p>
+                <div id="next-piece-display" class="w-16 h-16 grid grid-cols-4 grid-rows-4 mx-auto">
+                    <!-- Next piece cells will be injected here -->
+                </div>
+            </div>
+
+            <!-- 操作说明 -->
+            <div class="bg-yellow-50 p-3 rounded-lg">
+                <p class="text-sm font-semibold text-yellow-700 mb-2">操作說明:</p>
+                <ul class="text-xs space-y-1 text-gray-700">
+                    <li>←/→: 移動</li>
+                    <li>↑/X: 旋轉</li>
+                    <li>↓: 軟降</li>
+                    <li>空格/Z: 硬降 (快速落下)</li>
+                </ul>
+            </div>
+            
+            <button id="start-button" class="p-3 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 transition duration-150">
+                開始/重啟遊戲
+            </button>
+            
+            <button id="pause-button" class="p-3 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition duration-150">
+                暫停/繼續 (P)
+            </button>
+            
+            <!-- 新增按鈕，用於再次打開設定模態框 -->
+            <button id="open-setup-button" class="p-3 bg-blue-500 text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition duration-150">
+                重新設定單詞庫
+            </button>
+
+        </div>
+
+        <!-- 游戏主板 -->
+        <div id="game-board" class="order-1 md:order-2">
+            <!-- Game board cells will be injected here -->
+        </div>
+        
+    </div>
+
+    <!-- 設置模態框 (新增，用於初始設定和重新設定) -->
+    <div id="setup-modal-overlay" class="modal-overlay hidden">
+        <div id="setup-modal-content" class="modal-content bg-white p-6 rounded-xl shadow-2xl max-w-lg w-11/12 text-center transform scale-0">
+            <h2 class="text-3xl font-extrabold text-teal-600 mb-4">📚 設定單詞庫 (最多 10 個)</h2>
+            <p class="text-lg text-gray-700 mb-4">請輸入您想學習的單詞 (格式: WORD:意思)，我們會從中隨機出題。</p>
+            
+            <textarea id="custom-vocab-input" rows="6" class="w-full p-3 border-2 border-teal-300 rounded-lg text-left text-base focus:border-teal-500 focus:ring-1 focus:ring-teal-500 mb-4" placeholder="APPLE:蘋果, CAT:貓, DOG:狗, FUN:有趣, ..."></textarea>
+            
+            <p class="text-sm text-gray-500 mb-4">提示: 至少輸入 3 組單詞，**最多 10 組**。多組單詞請用逗號、換行或分號分隔。</p>
+
+            <button id="load-vocab-button" class="w-full p-3 bg-teal-500 text-white font-bold rounded-lg shadow-md hover:bg-teal-600 transition duration-150">
+                載入單詞並開始遊戲
+            </button>
+            
+            <button id="use-default-button" class="mt-2 w-full p-3 bg-gray-300 text-gray-800 font-bold rounded-lg shadow-md hover:bg-gray-400 transition duration-150">
+                使用預設單詞庫開始遊戲
+            </button>
+        </div>
+    </div>
+    
+    <!-- 测验模态框 -->
+    <div id="quiz-modal-overlay" class="modal-overlay hidden">
+        <div id="quiz-modal-content" class="modal-content bg-white p-6 rounded-xl shadow-2xl max-w-sm w-11/12 text-center transform scale-0">
+            <h2 class="text-3xl font-extrabold text-blue-600 mb-4">🎉 消除成功! 答題時間!</h2>
+            <p class="text-lg text-gray-700 mb-2">請根據中文意思，輸入正確的**英文單詞**：</p>
+            
+            <div class="bg-blue-100 p-4 rounded-lg my-4">
+                <p class="text-xl font-bold text-blue-800">中文提示詞:</p>
+                <p id="quiz-meaning" class="text-4xl font-black text-red-500 mt-2">--</p>
+            </div>
+            
+            <input type="text" id="quiz-input" placeholder="輸入英文單詞..." class="w-full p-3 border-2 border-gray-300 rounded-lg text-center text-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-4 uppercase">
+            
+            <button id="quiz-submit" class="w-full p-3 bg-blue-500 text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition duration-150">
+                確認提交
+            </button>
+
+            <p id="quiz-feedback" class="mt-3 text-red-500 font-semibold hidden"></p>
+        </div>
+    </div>
+
+
+    <script>
+        // 游戏核心变量
+        const ROWS = 20;
+        const COLS = 10;
+        const BOARD_ID = 'game-board';
+        const MAX_VOCAB_COUNT = 10; // 限制最多 10 個單詞
+        let board = [];
+        let score = 0;
+        let gameLoopInterval;
+        let isPaused = true;
+        let dropCounter = 0;
+        let dropInterval = 1000; 
+
+        // 当前方块状态
+        let currentPiece = null;
+        let nextPiece = null;
+        let currentX = 0;
+        let currentY = 0;
+
+        // 默认单词列表 (用于测验)
+        const DEFAULT_VOCABULARY = [
+            { word: "APPLE", meaning: "苹果" },
+            { word: "HOUSE", meaning: "房子" },
+            { word: "WATER", meaning: "水" },
+            { word: "HAPPY", meaning: "快乐的" },
+            { word: "BOOK", meaning: "书" },
+            { word: "GREEN", meaning: "绿色" },
+            { word: "SLEEP", meaning: "睡觉" },
+            { word: "CLOUD", meaning: "云朵" },
+            { word: "LIGHT", meaning: "光线" },
+            { word: "FRIEND", meaning: "朋友" },
+        ];
+        
+        let vocabulary = [...DEFAULT_VOCABULARY]; // 当前使用的词汇表
+        
+        let currentQuiz = null;
+        let quizActive = false;
+
+        // 方块形状定义 (矩阵和颜色ID)
+        const PIECES = [
+            { shape: [[0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0]], color: 1 }, // I
+            { shape: [[0,1,0], [0,1,0], [0,1,1]], color: 2 }, // L
+            { shape: [[0,1,0], [0,1,0], [1,1,0]], color: 3 }, // J
+            { shape: [[0,1,0], [1,1,1], [0,0,0]], color: 4 }, // T
+            { shape: [[1,1], [1,1]], color: 5 }, // O
+            { shape: [[0,1,1], [1,1,0], [0,0,0]], color: 6 }, // S
+            { shape: [[1,1,0], [0,1,1], [0,0,0]], color: 7 }, // Z
+        ];
+
+        // --- DOM 元素获取 ---
+        const boardElement = document.getElementById(BOARD_ID);
+        const scoreElement = document.getElementById('score');
+        const nextPieceElement = document.getElementById('next-piece-display');
+        const startButton = document.getElementById('start-button');
+        const pauseButton = document.getElementById('pause-button');
+        
+        // Setup Modal Elements
+        const setupModalOverlay = document.getElementById('setup-modal-overlay');
+        const customVocabInput = document.getElementById('custom-vocab-input');
+        const loadVocabButton = document.getElementById('load-vocab-button');
+        const useDefaultButton = document.getElementById('use-default-button'); // 新增
+        const openSetupButton = document.getElementById('open-setup-button'); // 新增
+
+        // Quiz Modal Elements
+        const quizModalOverlay = document.getElementById('quiz-modal-overlay');
+        const quizMeaningElement = document.getElementById('quiz-meaning');
+        const quizInputElement = document.getElementById('quiz-input');
+        const quizSubmitButton = document.getElementById('quiz-submit');
+        const quizFeedbackElement = document.getElementById('quiz-feedback');
+        
+
+        // --- 核心函數 (設定模態框控制) ---
+
+        /**
+         * 顯示設定模態框
+         */
+        function showSetupModal() {
+            isPaused = true;
+            setupModalOverlay.classList.remove('hidden');
+        }
+
+        /**
+         * 隱藏設定模態框
+         */
+        function hideSetupModal() {
+            setupModalOverlay.classList.add('hidden');
+        }
+
+        /**
+         * 解析並載入自定義詞彙表
+         */
+        function loadCustomVocabulary() {
+            const input = customVocabInput.value.trim();
+            const newVocab = [];
+            
+            if (input) {
+                // 分割每組單詞:意思
+                const pairs = input.split(/[\n,;]/); 
+                
+                pairs.forEach(pair => {
+                    const parts = pair.trim().split(':');
+                    if (parts.length === 2) {
+                        const word = parts[0].trim().toUpperCase();
+                        const meaning = parts[1].trim();
+                        if (word && meaning) {
+                            newVocab.push({ word, meaning });
+                        }
+                    }
+                });
+            }
+
+            if (newVocab.length >= 3) { 
+                if (newVocab.length > MAX_VOCAB_COUNT) {
+                     alertMessage("輸入單詞過多!", `只允許最多 ${MAX_VOCAB_COUNT} 個單詞。您輸入了 ${newVocab.length} 個。請修改後再試。`, 'bg-red-500');
+                     return; 
+                }
+                
+                vocabulary = newVocab;
+                alertMessage("單詞庫載入成功!", `已載入 ${vocabulary.length} 個單詞。遊戲即將開始。`, 'bg-green-500');
+                
+                hideSetupModal(); 
+                startGame(true); 
+            } else {
+                alertMessage("單詞庫無效!", "單詞庫無效或少於 3 個單詞。請檢查輸入格式。", 'bg-yellow-500');
+            }
+        }
+        
+        /**
+         * 使用預設單詞庫
+         */
+        function loadDefaultVocabulary() {
+            vocabulary = [...DEFAULT_VOCABULARY];
+            alertMessage("使用預設單詞庫!", `已載入 ${vocabulary.length} 個單詞。遊戲即將開始。`, 'bg-gray-500');
+            hideSetupModal();
+            startGame(true);
+        }
+        
+        /**
+         * 初始化遊戲板，填充DOM元素
+         */
+        function initBoard() {
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+            boardElement.innerHTML = ''; 
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell', `cell-${r}-${c}`, 'color-0');
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        /**
+         * 更新得分顯示
+         * @param {number} newScore - 要添加的得分
+         */
+        function updateScore(newScore) {
+            score += newScore;
+            scoreElement.textContent = score;
+            // 隨著分數增加，提高難度 (加快下降速度)
+            dropInterval = Math.max(100, 1000 - Math.floor(score / 50) * 100);
+        }
+
+        /**
+         * 绘制整个游戏板，包括已经固定的块
+         */
+        function drawBoard() {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.querySelector(`.cell-${r}-${c}`);
+                    // 清除所有颜色类
+                    cell.className = cell.className.replace(/color-\d+/g, '');
+                    // 添加新的颜色类
+                    cell.classList.add('cell', `cell-${r}-${c}`, `color-${board[r][c]}`);
+                }
+            }
+        }
+
+        /**
+         * 绘制当前正在下落的方块
+         */
+        function drawPiece() {
+            if (!currentPiece) return;
+
+            // 绘制方块
+            const shape = currentPiece.shape;
+            const color = currentPiece.color;
+            
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c] && currentY + r >= 0 && currentY + r < ROWS && currentX + c >= 0 && currentX + c < COLS) {
+                        const cell = document.querySelector(`.cell-${currentY + r}-${currentX + c}`);
+                        if (cell) {
+                            // 移除旧颜色并添加新颜色
+                            cell.className = cell.className.replace(/color-\d+/g, '');
+                            cell.classList.add('cell', `cell-${currentY + r}-${currentX + c}`, `color-${color}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * 随机生成一个新的方块
+         * @returns {object} 新的方块对象
+         */
+        function createPiece() {
+            const index = Math.floor(Math.random() * PIECES.length);
+            return {
+                shape: PIECES[index].shape,
+                color: PIECES[index].color
+            };
+        }
+
+        /**
+         * 生成下一个方块并将其设置为当前方块
+         */
+        function spawnPiece() {
+            if (!nextPiece) {
+                nextPiece = createPiece();
+            }
+            currentPiece = nextPiece;
+            nextPiece = createPiece();
+            
+            // 初始位置 (顶部中央)
+            currentX = Math.floor(COLS / 2) - Math.floor(currentPiece.shape[0].length / 2);
+            currentY = 0; 
+
+            // 检查游戏是否结束 (新方块无法生成)
+            if (!isValidMove(currentPiece.shape, currentX, currentY)) {
+                gameOver();
+                return false;
+            }
+            
+            drawNextPiece();
+            return true;
+        }
+
+        /**
+         * 绘制下一个方块的预览
+         */
+        function drawNextPiece() {
+            nextPieceElement.innerHTML = '';
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell', 'w-4', 'h-4', 'border', 'border-gray-300'); // 小尺寸预览
+                    const color = (nextPiece && nextPiece.shape[r] && nextPiece.shape[r][c]) ? nextPiece.color : 0;
+                    cell.classList.add(`color-${color}`);
+                    nextPieceElement.appendChild(cell);
+                }
+            }
+            nextPieceElement.classList.add('grid', 'grid-cols-4', 'grid-rows-4', 'gap-px');
+        }
+
+        /**
+         * 检查移动或旋转是否有效
+         */
+        function isValidMove(shape, newX, newY) {
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c] !== 0) {
+                        const boardX = newX + c;
+                        const boardY = newY + r;
+
+                        // 检查边界
+                        if (boardX < 0 || boardX >= COLS || boardY >= ROWS) {
+                            return false;
+                        }
+
+                        // 检查是否与已固定的块重叠 (忽略板子上方，即 boardY < 0 的情况)
+                        if (boardY >= 0 && board[boardY][boardX] !== 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        /**
+         * 锁定当前方块到游戏板
+         */
+        function lockPiece() {
+            const shape = currentPiece.shape;
+            const color = currentPiece.color;
+
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c]) {
+                        const lockY = currentY + r;
+                        const lockX = currentX + c;
+                        if (lockY >= 0) { // 仅锁定在板子内的部分
+                            board[lockY][lockX] = color;
+                        }
+                    }
+                }
+            }
+            
+            // 清除当前方块
+            currentPiece = null;
+            checkLineClears();
+            
+            // 只有当没有测验时才生成新方块
+            if (!quizActive) {
+                spawnPiece(); 
+            }
+        }
+
+        /**
+         * 检查并清除已满的行，并触发单词测验
+         */
+        function checkLineClears() {
+            let linesCleared = 0;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(cell => cell !== 0)) {
+                    // 找到了一个满行，清除它
+                    linesCleared++;
+                    // 移除该行并将上面的行向下移动
+                    board.splice(r, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    // 因为删除了当前行，需要重新检查这一行 (r)
+                    r++; 
+                }
+            }
+
+            if (linesCleared > 0) {
+                // 根据清除的行数加分
+                const points = [0, 10, 25, 50, 80][linesCleared];
+                updateScore(points);
+                // 触发单词测验
+                showQuizModal();
+            }
+        }
+
+        /**
+         * 旋转方块
+         */
+        function rotateMatrix(matrix) {
+            const N = matrix.length;
+            const newMatrix = Array.from({ length: N }, () => Array(N).fill(0));
+            for (let i = 0; i < N; i++) {
+                for (let j = 0; j < N; j++) {
+                    newMatrix[j][N - 1 - i] = matrix[i][j];
+                }
+            }
+            return newMatrix;
+        }
+
+        /**
+         * 尝试旋转当前方块 (带有墙踢/Wall Kick)
+         */
+        function rotatePiece() {
+            if (!currentPiece || isPaused || quizActive) return;
+            const originalShape = currentPiece.shape;
+            const rotatedShape = rotateMatrix(originalShape);
+
+            // 简单的墙踢逻辑：尝试向左或向右移动1格
+            if (isValidMove(rotatedShape, currentX, currentY)) {
+                currentPiece.shape = rotatedShape;
+            } else if (isValidMove(rotatedShape, currentX + 1, currentY)) {
+                currentPiece.shape = rotatedShape;
+                currentX += 1;
+            } else if (isValidMove(rotatedShape, currentX - 1, currentY)) {
+                currentPiece.shape = rotatedShape;
+                currentX -= 1;
+            }
+        }
+
+        /**
+         * 向下移動方塊 (軟降)
+         */
+        function dropPiece() {
+            if (!currentPiece || isPaused || quizActive) return;
+
+            if (isValidMove(currentPiece.shape, currentX, currentY + 1)) {
+                currentY++;
+            } else {
+                // 無法再向下移動，鎖定方塊
+                lockPiece();
+            }
+        }
+
+        /**
+         * 快速硬降方塊
+         */
+        function hardDrop() {
+            if (!currentPiece || isPaused || quizActive) return;
+            let dropDist = 0;
+            while (isValidMove(currentPiece.shape, currentX, currentY + dropDist + 1)) {
+                dropDist++;
+            }
+            currentY += dropDist;
+            updateScore(dropDist * 2); // 硬降加分
+            lockPiece();
+        }
+
+        /**
+         * 遊戲主循環
+         */
+        let lastTime = 0;
+        function update(time = 0) {
+            if (isPaused || quizActive) {
+                // 如果暫停或在測驗中，則不進行更新
+                lastTime = time; 
+                gameLoopInterval = requestAnimationFrame(update);
+                return;
+            }
+
+            const deltaTime = time - lastTime;
+            lastTime = time;
+
+            dropCounter += deltaTime;
+
+            if (dropCounter > dropInterval) {
+                dropPiece();
+                dropCounter = 0;
+            }
+
+            // 重新繪製整個屏幕
+            drawBoard();
+            drawPiece();
+
+            gameLoopInterval = requestAnimationFrame(update);
+        }
+
+        /**
+         * 遊戲結束
+         */
+        function gameOver() {
+            isPaused = true;
+            cancelAnimationFrame(gameLoopInterval);
+            startButton.textContent = "重新開始";
+            pauseButton.textContent = "暫停/繼續 (P)";
+            alertMessage("遊戲結束!", `你的最終得分是: ${score}`, 'bg-red-500');
+        }
+        
+        /**
+         * 顯示自定義消息框 (代替 alert)
+         */
+        function alertMessage(title, message, bgColor) {
+            const existingModal = document.getElementById('alert-modal-overlay');
+            if (existingModal) existingModal.remove();
+
+            const modalHtml = `
+                <div id="alert-modal-overlay" class="modal-overlay">
+                    <div class="modal-content ${bgColor} p-6 rounded-xl shadow-2xl max-w-xs w-11/12 text-center text-white">
+                        <h2 class="text-3xl font-bold mb-4">${title}</h2>
+                        <p class="text-lg mb-6">${message}</p>
+                        <button onclick="document.getElementById('alert-modal-overlay').remove();" class="p-2 bg-white text-gray-800 font-semibold rounded-lg hover:bg-gray-200 transition">確定</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+
+        // --- 测验邏輯 ---
+
+        /**
+         * 顯示單詞測驗模態框
+         */
+        function showQuizModal() {
+            if (vocabulary.length === 0) {
+                 alertMessage("錯誤", "單詞庫為空，無法進行測驗。遊戲將繼續。", 'bg-red-500');
+                 spawnPiece();
+                 return;
+            }
+            
+            isPaused = true;
+            quizActive = true;
+            
+            // 隨機選擇一個單詞
+            const index = Math.floor(Math.random() * vocabulary.length);
+            currentQuiz = vocabulary[index];
+            
+            quizMeaningElement.textContent = currentQuiz.meaning;
+            quizInputElement.value = '';
+            quizFeedbackElement.textContent = '';
+            quizFeedbackElement.classList.add('hidden');
+
+            quizModalOverlay.classList.remove('hidden');
+            quizInputElement.focus();
+        }
+
+        /**
+         * 隱藏測驗模態框並恢復遊戲
+         */
+        function hideQuizModal() {
+            quizModalOverlay.classList.add('hidden');
+            quizActive = false;
+            
+            // 如果成功完成測驗，生成新方塊
+            if (!currentPiece) {
+                spawnPiece();
+            }
+            
+            // 確保在恢復遊戲前重置時間
+            lastTime = performance.now(); 
+            isPaused = false;
+        }
+
+        /**
+         * 提交測驗答案
+         */
+        function submitQuiz() {
+            const userAnswer = quizInputElement.value.trim().toUpperCase();
+            const correctAnswer = currentQuiz.word.toUpperCase();
+
+            if (userAnswer === correctAnswer) {
+                // 答對
+                updateScore(10); 
+                alertMessage("太棒了！", `答對啦！${currentQuiz.word} 的中文意思是 ${currentQuiz.meaning}。`, 'bg-green-500');
+                hideQuizModal();
+            } else {
+                // 答錯
+                quizFeedbackElement.textContent = `答案錯誤! 正確答案是: ${correctAnswer}`;
+                quizFeedbackElement.classList.remove('hidden');
+                
+                // 给出提示，讓孩子有機會再次嘗試 
+                updateScore(-2); 
+                alertMessage("再努力一下！", `你輸入的不是正確單詞。請再試一次！`, 'bg-red-500');
+                // 重新聚焦輸入框
+                quizInputElement.value = '';
+                quizInputElement.focus();
+            }
+        }
+        
+        /**
+         * 啟動/重啟遊戲
+         * @param {boolean} isRestart - 是否為重啟
+         */
+        function startGame(isRestart = false) {
+            if (gameLoopInterval) {
+                cancelAnimationFrame(gameLoopInterval);
+            }
+            
+            initBoard();
+            score = 0;
+            updateScore(0);
+            
+            currentPiece = null; // 確保清除舊方塊
+            nextPiece = null;
+            
+            if (spawnPiece()) {
+                isPaused = false;
+                startButton.textContent = "遊戲進行中...";
+                pauseButton.textContent = "暫停/繼續 (P)";
+                lastTime = performance.now(); 
+                gameLoopInterval = requestAnimationFrame(update);
+            }
+        }
+        
+        /**
+         * 處理暫停/繼續
+         */
+        function togglePause() {
+            if (quizActive || setupModalOverlay.classList.contains('hidden') === false) return; // 測驗或設定時不能操作
+            
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseButton.textContent = "已暫停";
+                alertMessage("遊戲已暫停", "按 P 鍵或再次點擊按鈕繼續", 'bg-gray-500');
+            } else {
+                pauseButton.textContent = "暫停/繼續 (P)";
+                lastTime = performance.now(); // 確保時間戳正確
+                gameLoopInterval = requestAnimationFrame(update);
+            }
+        }
+
+
+        // --- 事件監聽 ---
+
+        // Start/Restart 鈕：直接重啟遊戲（使用當前單詞庫）
+        startButton.addEventListener('click', () => {
+            if (setupModalOverlay.classList.contains('hidden') === false) return; // 避免在設定中點擊
+            startGame(true);
+        });
+        
+        pauseButton.addEventListener('click', togglePause);
+        
+        // Setup Modal 相關按鈕
+        loadVocabButton.addEventListener('click', loadCustomVocabulary);
+        useDefaultButton.addEventListener('click', loadDefaultVocabulary);
+        openSetupButton.addEventListener('click', showSetupModal); // 重新設定按鈕
+
+        // Quiz Modal 相關按鈕
+        quizSubmitButton.addEventListener('click', submitQuiz);
+        quizInputElement.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitQuiz();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (quizActive) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitQuiz();
+                }
+                return;
+            }
+            
+            if (e.key === 'p' || e.key === 'P') {
+                togglePause();
+                return;
+            }
+
+            if (isPaused || setupModalOverlay.classList.contains('hidden') === false) return;
+
+            let newX = currentX;
+            let newY = currentY;
+
+            if (e.key === 'ArrowLeft') {
+                newX--;
+            } else if (e.key === 'ArrowRight') {
+                newX++;
+            } else if (e.key === 'ArrowDown') {
+                newY++;
+                // 軟降額外加分
+                updateScore(1); 
+            } else if (e.key === 'ArrowUp' || e.key === 'x' || e.key === 'X') {
+                rotatePiece();
+                return; 
+            } else if (e.key === ' ' || e.key === 'z' || e.key === 'Z') {
+                e.preventDefault(); // 阻止空格鍵滾動頁面
+                hardDrop();
+                return;
+            } else {
+                return;
+            }
+
+            // 嘗試進行移動
+            if (isValidMove(currentPiece.shape, newX, newY)) {
+                currentX = newX;
+                currentY = newY;
+                // 如果是向下移動，重置下降計時器
+                if (e.key === 'ArrowDown') {
+                    dropCounter = 0; 
+                }
+            } else if (e.key === 'ArrowDown') {
+                // 無法向下移動，鎖定方塊
+                lockPiece();
+            }
+        });
+
+        // 首次加載時初始化
+        window.onload = () => {
+            initBoard();
+            drawNextPiece(); 
+            // 將預設單詞的前 5 個作為輸入框的模板
+            customVocabInput.value = DEFAULT_VOCABULARY.map(v => `${v.word}:${v.meaning}`).slice(0, 5).join(', ');
+            
+            // 在頁面載入時，首先顯示設定模態框
+            showSetupModal();
+        };
+
+    </script>
+</body>
+</html>
